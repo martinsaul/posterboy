@@ -1,0 +1,62 @@
+smtp:
+  port: 2525
+  auth:
+    enabled: true
+    username: relay
+    password: changeme
+
+admin:
+  enabled: true
+  port: 8080
+
+plugins:
+  discord:
+    default_webhook: ${DISCORD_DEFAULT_WEBHOOK}
+    aliases:
+      # Emails addressed to alerts@<anything> go to the 'alerts' webhook.
+      # alerts:
+      #   webhook: https://discord.com/api/webhooks/.../alerts
+
+  # Gmail plugin -- uncomment to forward mail out as real email.
+  # gmail:
+  #   strategy: smtp  # "smtp" (app password, ~500/day) or "api" (OAuth, ~2000/day)
+  #   default_alias: you@example.com
+  #   smtp:
+  #     host: smtp.gmail.com
+  #     port: 587
+  #     username: you@example.com
+  #     password: ${GMAIL_APP_PASSWORD}
+  #   # For the API strategy instead, configure OAuth via the admin UI:
+  #   # api:
+  #   #   tokens_path: /data/tokens
+
+routing:
+  mx_heuristic:
+    enabled: true
+    cache_ttl_seconds: 3600
+  rules:
+    # Mail addressed to your own domain(s) -> Discord.
+    - match:
+        to_domain:
+          - "example.com"
+          - "*.example.com"
+      action: discord
+
+    # Optional: forward mail to real external inboxes as email (needs the gmail plugin).
+    # - match:
+    #     to_domain_has_mx: true
+    #   action: gmail
+
+  default_action: discord
+
+# Drop-in plugins & extensions.
+# Any *.jar in plugins_dir is scanned at startup, so you can add delivery plugins
+# or extensions (custom HTTP ingress, auth, reporters, …) without rebuilding the
+# image. Defaults to the POSTERBOY_PLUGINS_DIR env var, then /data/plugins.
+# plugins_dir: /data/plugins
+#
+# Per-extension config, keyed by extension id (see docs/EXTENSIONS.md):
+# extensions:
+#   my-extension:
+#     some_setting: value
+

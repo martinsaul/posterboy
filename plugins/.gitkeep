@@ -1,0 +1,2 @@
+# Drop *.jar plugin/extension files here; they load at startup (mounted at
+# /data/plugins in Docker). See docs/EXTENSIONS.md.

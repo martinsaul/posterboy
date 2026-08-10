@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Posterboy Admin</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header>
+        <h1>Posterboy</h1>
+        <div id="status-badge">--</div>
+    </header>
+
+    <nav>
+        <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="plugins">Plugins</button>
+        <button class="tab" data-tab="routing">Routing</button>
+        <button class="tab" data-tab="smtp">SMTP</button>
+        <button class="tab" data-tab="config">Config</button>
+        <button class="tab" data-tab="approval">Approval Queue</button>
+        <button class="tab" data-tab="debug">Debug</button>
+    </nav>
+
+    <main>
+        <!-- Overview -->
+        <section id="tab-overview" class="tab-content active">
+            <h2>Status</h2>
+            <div id="overview-info" class="card">Loading...</div>
+        </section>
+
+        <!-- Plugins -->
+        <section id="tab-plugins" class="tab-content">
+            <h2>Plugins</h2>
+            <div id="plugins-list"></div>
+
+            <!-- Gmail Setup Panel -->
+            <div id="gmail-setup" class="hidden">
+                <h3>Gmail Setup</h3>
+                <div id="gmail-status-card" class="card"></div>
+
+                <div id="gmail-step-credentials" class="card hidden">
+                    <h4>Step 1: GCP Credentials</h4>
+                    <p class="hint">Paste the OAuth client credentials JSON from Google Cloud Console.</p>
+                    <textarea id="gmail-cred-paste" rows="8" spellcheck="false" placeholder='Paste your credentials JSON here...'></textarea>
+                    <div class="actions">
+                        <button onclick="submitGmailCredentials()">Save Credentials</button>
+                    </div>
+                </div>
+
+                <div id="gmail-step-auth" class="card hidden">
+                    <h4>Step 2: Authorize with Google</h4>
+                    <p class="hint">Click to sign in with your Google account and grant Posterboy permission to send emails.</p>
+                    <div class="actions">
+                        <button onclick="startGmailAuth()">Authorize Gmail</button>
+                    </div>
+                </div>
+
+                <div id="gmail-step-done" class="card hidden">
+                    <h4>Authorized</h4>
+                    <p>Gmail API is connected and ready to send emails.</p>
+                    <div id="gmail-alias-picker" style="margin-top:1rem">
+                        <label for="gmail-alias-select">Send As (default alias):</label>
+                        <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.35rem">
+                            <select id="gmail-alias-select"></select>
+                            <button onclick="saveGmailAlias()">Save</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="actions" style="margin-top:1rem">
+                    <button class="secondary" onclick="closeGmailSetup()">Close</button>
+                </div>
+            </div>
+
+            <!-- Generic Plugin Editor -->
+            <div id="plugin-editor" class="hidden">
+                <h3>Edit Plugin: <span id="plugin-editor-name"></span></h3>
+                <textarea id="plugin-config-editor" rows="20" spellcheck="false"></textarea>
+                <div class="actions">
+                    <button onclick="savePluginConfig()">Save & Reload</button>
+                    <button class="secondary" onclick="cancelPluginEdit()">Cancel</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Routing -->
+        <section id="tab-routing" class="tab-content">
+            <h2>Routing Rules</h2>
+            <textarea id="routing-editor" rows="25" spellcheck="false"></textarea>
+            <div class="actions">
+                <button onclick="saveRouting()">Save & Reload</button>
+                <button class="secondary" onclick="loadRouting()">Reset</button>
+            </div>
+        </section>
+
+        <!-- SMTP -->
+        <section id="tab-smtp" class="tab-content">
+            <h2>SMTP Server</h2>
+            <form id="smtp-form" onsubmit="saveSmtp(event)">
+                <div class="form-group">
+                    <label for="smtp-port">Listen Port</label>
+                    <input type="number" id="smtp-port" min="1" max="65535">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="smtp-auth-enabled">
+                        Require Authentication
+                    </label>
+                </div>
+                <div id="smtp-auth-fields">
+                    <div class="form-group">
+                        <label for="smtp-username">Username</label>
+                        <input type="text" id="smtp-username">
+                    </div>
+                    <div class="form-group">
+                        <label for="smtp-password">Password</label>
+                        <input type="password" id="smtp-password">
+                    </div>
+                </div>
+                <div class="actions">
+                    <button type="submit">Save & Reload</button>
+                    <button type="button" class="secondary" onclick="loadSmtp()">Reset</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Config -->
+        <section id="tab-config" class="tab-content">
+            <h2>Raw Configuration</h2>
+            <p class="hint">Edit the full YAML configuration directly, or import/export.</p>
+            <textarea id="config-editor" rows="30" spellcheck="false"></textarea>
+            <div class="actions">
+                <button onclick="importConfig()">Import & Apply</button>
+                <button class="secondary" onclick="loadConfigYaml()">Reset</button>
+                <button class="secondary" onclick="exportConfig()">Export YAML</button>
+            </div>
+        </section>
+        <!-- Approval Queue -->
+        <section id="tab-approval" class="tab-content">
+            <h2>Approval Queue</h2>
+            <div id="approval-list"></div>
+        </section>
+
+        <!-- Debug -->
+        <section id="tab-debug" class="tab-content">
+            <h2>Debug Monitor</h2>
+            <div class="card" style="display:flex;align-items:center;justify-content:space-between">
+                <div>
+                    <span id="debug-status-text">Disconnected</span>
+                    <span id="debug-count" class="hint" style="margin-left:1rem"></span>
+                </div>
+                <button id="debug-toggle" onclick="toggleDebug()">Connect</button>
+            </div>
+            <div id="debug-feed"></div>
+        </section>
+    </main>
+
+    <!-- Approval detail modal -->
+    <div id="approval-modal" class="hidden" onclick="if(event.target===this)closeApprovalModal()">
+        <div class="modal-content" style="max-width:800px;max-height:90vh;overflow-y:auto">
+            <h3>Held Message</h3>
+            <div id="approval-modal-body"></div>
+            <div id="approval-attachments"></div>
+            <div id="approval-body-content"></div>
+            <div class="actions">
+                <button onclick="approveMessage()">Approve & Deliver</button>
+                <button class="secondary" style="background:#2e0a0a;color:#f87171;border-color:#991b1b" onclick="dismissMessage()">Dismiss</button>
+                <button class="secondary" onclick="closeApprovalModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug detail modal -->
+    <div id="debug-modal" class="hidden" onclick="if(event.target===this)closeDebugModal()">
+        <div class="modal-content">
+            <h3>Email Details</h3>
+            <div id="debug-modal-body"></div>
+            <div class="actions"><button class="secondary" onclick="closeDebugModal()">Close</button></div>
+        </div>
+    </div>
+
+    <div id="toast" class="hidden"></div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

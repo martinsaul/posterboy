@@ -1,0 +1,24 @@
+services:
+  posterboy:
+    build: .
+    image: posterboy:latest
+    container_name: posterboy
+    restart: unless-stopped
+    ports:
+      # SMTP listener. Map to :25 on the host (or put a TLS-terminating proxy in
+      # front) if you want to receive mail on the standard port.
+      - "2525:2525"
+      # Admin UI + config API. The admin UI is unauthenticated — do NOT expose it
+      # to the public internet; keep it on a private network or behind auth.
+      - "8080:8080"
+    environment:
+      # Default Discord webhook for the discord plugin (see .env.example).
+      - DISCORD_DEFAULT_WEBHOOK=${DISCORD_DEFAULT_WEBHOOK:-}
+    volumes:
+      # Default config, copied to /data on first run so edits survive restarts.
+      - ./config/posterboy.yml:/etc/posterboy/posterboy.default.yml:ro
+      # Persistent state: live config, approval-queue DB, Gmail OAuth tokens.
+      - ./data:/data
+      # Drop-in plugins/extensions: put *.jar files here and restart. This is how
+      # you add delivery plugins or extensions without rebuilding the image.
+      - ./plugins:/data/plugins:ro

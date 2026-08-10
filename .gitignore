@@ -1,0 +1,24 @@
+.gradle/
+build/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data
+data/
+*.log
+/pid
+
+# Drop-in plugin jars (keep the dir, not the jars)
+plugins/*.jar
