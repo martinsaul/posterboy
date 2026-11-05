@@ -203,49 +203,7 @@ class ApiSendStrategy : SendStrategy {
             "Gmail not authorized. Complete OAuth setup via the admin UI."
         )
 
-        val session = Session.getDefaultInstance(Properties())
-        val mimeMessage = MimeMessage(session).apply {
-            setFrom(InternetAddress(fromAlias))
-            toAddresses.forEach { addr ->
-                addRecipient(MimeMessage.RecipientType.TO, InternetAddress(addr))
-            }
-            subject = email.subject
-
-            if (email.fullAttachments.isNotEmpty()) {
-                val multipart = MimeMultipart("mixed")
-
-                // Body part
-                val bodyPart = MimeBodyPart()
-                val body = email.bodyPlain ?: email.bodyHtml ?: ""
-                if (email.bodyHtml != null && email.bodyPlain == null) {
-                    bodyPart.setContent(body, "text/html; charset=utf-8")
-                } else {
-                    bodyPart.setText(body, "utf-8")
-                }
-                multipart.addBodyPart(bodyPart)
-
-                // Attachment parts
-                for (att in email.fullAttachments) {
-                    val attPart = MimeBodyPart()
-                    attPart.dataHandler = DataHandler(ByteArrayDataSource(att.data, att.meta.mimeType))
-                    attPart.fileName = att.meta.filename
-                    multipart.addBodyPart(attPart)
-                }
-
-                setContent(multipart)
-            } else {
-                val body = email.bodyPlain ?: email.bodyHtml ?: ""
-                if (email.bodyHtml != null && email.bodyPlain == null) {
-                    setContent(body, "text/html; charset=utf-8")
-                } else {
-                    setText(body, "utf-8")
-                }
-            }
-        }
-
-        val buffer = ByteArrayOutputStream()
-        mimeMessage.writeTo(buffer)
-        val encodedEmail = Base64.getUrlEncoder().encodeToString(buffer.toByteArray())
+        val encodedEmail = Base64.getUrlEncoder().encodeToString(buildRaw(email, fromAlias, toAddresses))
 
         val message = Message().apply { raw = encodedEmail }
         try {
@@ -272,6 +230,60 @@ class ApiSendStrategy : SendStrategy {
                 "not authorized" in msg ||
                 "invalid_token" in msg ||
                 "401" in msg
+        }
+
+        /**
+         * RFC 5322 line endings. JavaMail writes headers with CRLF but passes a text body through
+         * as given, and the Gmail API stores the raw bytes as-is, so a bare-LF body (e.g. JSON
+         * ingest) became a mixed-ending message. IMAP clients that trust
+         * the CRLF-normalised RFC822.SIZE (FairEmail) then truncated the tail by one byte per line.
+         */
+        internal fun crlf(s: String): String = s.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
+
+        /** The exact MIME bytes sent through the Gmail API (headers and body CRLF). */
+        internal fun buildRaw(email: InboundEmail, fromAlias: String, toAddresses: List<String>): ByteArray {
+            val session = Session.getDefaultInstance(Properties())
+            val mimeMessage = MimeMessage(session).apply {
+                setFrom(InternetAddress(fromAlias))
+                toAddresses.forEach { addr ->
+                    addRecipient(MimeMessage.RecipientType.TO, InternetAddress(addr))
+                }
+                subject = email.subject
+
+                if (email.fullAttachments.isNotEmpty()) {
+                    val multipart = MimeMultipart("mixed")
+
+                    // Body part
+                    val bodyPart = MimeBodyPart()
+                    val body = crlf(email.bodyPlain ?: email.bodyHtml ?: "")
+                    if (email.bodyHtml != null && email.bodyPlain == null) {
+                        bodyPart.setContent(body, "text/html; charset=utf-8")
+                    } else {
+                        bodyPart.setText(body, "utf-8")
+                    }
+                    multipart.addBodyPart(bodyPart)
+
+                    // Attachment parts
+                    for (att in email.fullAttachments) {
+                        val attPart = MimeBodyPart()
+                        attPart.dataHandler = DataHandler(ByteArrayDataSource(att.data, att.meta.mimeType))
+                        attPart.fileName = att.meta.filename
+                        multipart.addBodyPart(attPart)
+                    }
+
+                    setContent(multipart)
+                } else {
+                    val body = crlf(email.bodyPlain ?: email.bodyHtml ?: "")
+                    if (email.bodyHtml != null && email.bodyPlain == null) {
+                        setContent(body, "text/html; charset=utf-8")
+                    } else {
+                        setText(body, "utf-8")
+                    }
+                }
+            }
+            val buffer = ByteArrayOutputStream()
+            mimeMessage.writeTo(buffer)
+            return buffer.toByteArray()
         }
     }
 }
